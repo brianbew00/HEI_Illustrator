@@ -2,14 +2,14 @@ import streamlit as st
 import pandas as pd
 import plotly.graph_objects as go
 
-# Page Setup
+# Page setup
 st.set_page_config(page_title="HEI Calculator", layout="wide")
 st.title("🏡 Home Equity Investment (HEI) Calculator")
 
 # Sanity check
-st.write("✅ The latest version of the app has been loaded.")
+st.success("✅ The latest version of the app has been loaded.")
 
-# Function to parse formatted input strings
+# Parsing functions for formatted inputs
 def parse_currency(x):
     return float(x.replace('$', '').replace(',', '').strip())
 
@@ -19,7 +19,7 @@ def parse_percent(x):
 def parse_multiplier(x):
     return float(x.lower().replace('x', '').strip())
 
-# Sidebar Inputs (formatted)
+# Sidebar Inputs
 with st.sidebar:
     st.header("📌 Input Parameters (Formatted)")
 
@@ -37,7 +37,7 @@ try:
     hei_multiplier = parse_multiplier(hei_multiplier_str)
     investor_cap_rate = parse_percent(investor_cap_str)
 except ValueError:
-    st.error("Please check your input formats.")
+    st.error("⚠️ Please verify input formats.")
     st.stop()
 
 # Calculations
@@ -45,16 +45,13 @@ premium_amount = home_value * premium_percentage
 investor_percentage = premium_percentage * hei_multiplier
 
 years = list(range(11))
-home_values = []
-hei_caps = []
-hei_intrinsic_values = []
-settlement_values = []
+home_values, hei_caps, hei_intrinsic_values, settlement_values = [], [], [], []
 
 current_home_value = home_value
 current_hei_cap = premium_amount
 
 for year in years:
-    if year != 0:
+    if year > 0:
         current_home_value *= (1 + appreciation_rate)
         current_hei_cap *= (1 + investor_cap_rate)
 
@@ -66,31 +63,46 @@ for year in years:
     hei_intrinsic_values.append(intrinsic_value)
     settlement_values.append(settlement_value)
 
-# DataFrame creation
+# Create DataFrame
 df_results = pd.DataFrame({
     "Year": years,
     "Home Value": home_values,
     "HEI Cap": hei_caps,
     "HEI Intrinsic Value": hei_intrinsic_values,
-    "Settlement Value": settlement_values,
+    "Settlement Value": settlement_values
 })
 
-# Formatting for display
-currency_fmt = "${:,.0f}".format
-formatted_df = df_results.copy()
-formatted_df["Home Value"] = formatted_df["Home Value"].map(currency_fmt)
-formatted_df["HEI Cap"] = formatted_df["HEI Cap"].map(currency_fmt)
-formatted_df["HEI Intrinsic Value"] = formatted_df["HEI Intrinsic Value"].map(currency_fmt)
-formatted_df["Settlement Value"] = formatted_df["Settlement Value"].map(currency_fmt)
+# Currency formatting function
+def currency_fmt(x):
+    return "${:,.0f}".format(x)
 
-# Display formatted metrics
+# Function to highlight cells
+def highlight_cells(row):
+    cap = row["HEI Cap"]
+    intrinsic = row["HEI Intrinsic Value"]
+    settlement = min(cap, intrinsic)
+    return [
+        '',  # Year
+        '',  # Home Value
+        'background-color: #90ee90' if cap == settlement else '',
+        'background-color: #90ee90' if intrinsic == settlement else '',
+        'background-color: #90ee90'  # Settlement always matches min(cap, intrinsic)
+    ]
+
+# Apply formatting and highlighting
+styled_df = df_results.style.format({
+    "Home Value": currency_fmt,
+    "HEI Cap": currency_fmt,
+    "HEI Intrinsic Value": currency_fmt,
+    "Settlement Value": currency_fmt
+}).apply(highlight_cells, axis=1)
+
+# Display Metrics
 col1, col2 = st.columns(2)
-with col1:
-    st.metric("🏷️ Premium Amount", currency_fmt(premium_amount))
-with col2:
-    st.metric("📈 Investor Percentage", f"{investor_percentage:.0%}")
+col1.metric("🏷️ Premium Amount", currency_fmt(premium_amount))
+col2.metric("📈 Investor Percentage", f"{investor_percentage:.0%}")
 
-# Interactive Plotly Chart
+# Plotly interactive chart
 fig = go.Figure()
 fig.add_trace(go.Scatter(x=years, y=home_values, name="Home Value"))
 fig.add_trace(go.Scatter(x=years, y=hei_caps, name="HEI Cap"))
@@ -98,14 +110,14 @@ fig.add_trace(go.Scatter(x=years, y=hei_intrinsic_values, name="HEI Intrinsic Va
 fig.add_trace(go.Scatter(x=years, y=settlement_values, name="Settlement Value", fill='tozeroy'))
 
 fig.update_layout(
-    title='HEI Investment Values Over 10 Years',
-    xaxis_title='Year',
-    yaxis_title='Value ($)',
-    hovermode='x unified'
+    title="HEI Investment Values Over 10 Years",
+    xaxis_title="Year",
+    yaxis_title="Value ($)",
+    hovermode="x unified"
 )
 
 st.plotly_chart(fig, use_container_width=True)
 
-# Display results table
-st.subheader("📊 Annual HEI Breakdown")
-st.dataframe(formatted_df.set_index("Year"), use_container_width=True)
+# Display results table with conditional highlighting
+st.subheader("📊 Annual HEI Breakdown (Highlighted)")
+st.dataframe(styled_df, use_container_width=True)
