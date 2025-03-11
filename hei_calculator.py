@@ -9,7 +9,7 @@ st.title("🏡 Home Equity Investment (HEI) Calculator")
 # Sanity Check
 st.success("✅ The latest version of the app has been loaded.")
 
-# --- Parsing Functions ---
+# Parsing Functions
 def parse_currency(x):
     return float(x.replace('$', '').replace(',', '').strip())
 
@@ -72,26 +72,28 @@ df_results = pd.DataFrame({
     "Settlement Value": settlement_values
 }).set_index("Year")
 
-# Conditional highlighting (HEI Cap vs Intrinsic Value)
+# Conditional highlighting (corrected explicitly for exact 4 columns)
 def highlight_min(row):
     cap = row["HEI Cap"]
     intrinsic = row["HEI Intrinsic Value"]
     if cap < intrinsic:
-        return ['','background-color: #90ee90','','']
+        return ["", "background-color: #90ee90", "", ""]
     elif intrinsic < cap:
-        return ['','','background-color: #90ee90','']
+        return ["", "", "background-color: #90ee90", ""]
     else:
-        return ['']*4
+        return [""] * 4
 
-# Apply formatting
-formatted_df = df_results.style.format("${:,.0f}").apply(highlight_min, axis=1, subset=["HEI Cap", "HEI Intrinsic Value"])
+# Apply formatting clearly (corrected)
+formatted_df = df_results.style.format("${:,.0f}").apply(
+    highlight_min, axis=1, subset=["Home Value", "HEI Cap", "HEI Intrinsic Value", "Settlement Value"]
+)
 
-# Display Metrics clearly
+# Display Metrics
 col1, col2 = st.columns(2)
 col1.metric("🏷️ Premium Amount", f"${premium_amount:,.0f}")
 col2.metric("📈 Investor Percentage", f"{investor_percentage:.0%}")
 
-# Plotly Interactive Chart
+# Plotly Chart
 fig = go.Figure()
 fig.add_trace(go.Scatter(x=years, y=home_values, name="Home Value"))
 fig.add_trace(go.Scatter(x=years, y=hei_caps, name="HEI Cap"))
@@ -107,6 +109,6 @@ fig.update_layout(
 
 st.plotly_chart(fig, use_container_width=True)
 
-# Display formatted DataFrame clearly
+# Display formatted DataFrame (error-free)
 st.subheader("📊 Annual HEI Breakdown")
 st.dataframe(formatted_df, use_container_width=True)
