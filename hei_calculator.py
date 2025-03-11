@@ -19,7 +19,7 @@ def parse_percent(x):
 def parse_multiplier(x):
     return float(x.lower().replace('x', '').strip())
 
-# Sidebar Inputs (Formatted)
+# Sidebar Inputs
 with st.sidebar:
     st.header("📌 Input Parameters")
 
@@ -29,7 +29,7 @@ with st.sidebar:
     hei_multiplier_str = st.text_input("HEI Multiplier", "2.0x")
     investor_cap_str = st.text_input("Investor Cap", "20.00%")
 
-# Parse inputs explicitly
+# Parse inputs
 try:
     home_value = parse_currency(home_value_str)
     appreciation_rate = parse_percent(appreciation_rate_str)
@@ -40,10 +40,11 @@ except ValueError:
     st.error("⚠️ Please verify your input formats.")
     st.stop()
 
-# Calculations
+# Initial calculations
 premium_amount = home_value * premium_percentage
 investor_percentage = premium_percentage * hei_multiplier
 
+# Prepare lists
 years = list(range(11))
 home_values, hei_caps, contract_values, settlement_values = [], [], [], []
 
@@ -51,7 +52,7 @@ current_home_value = home_value
 current_hei_cap = premium_amount
 
 for year in years:
-    if year != 0:
+    if year > 0:
         current_home_value *= (1 + appreciation_rate)
         current_hei_cap *= (1 + investor_cap_rate)
 
@@ -63,7 +64,7 @@ for year in years:
     contract_values.append(contract_value)
     settlement_values.append(settlement_value)
 
-# Results DataFrame clearly set index BEFORE styling
+# Results DataFrame with correct names
 df_results = pd.DataFrame({
     "Year": years,
     "Home Value": home_values,
@@ -72,7 +73,7 @@ df_results = pd.DataFrame({
     "Settlement Value": settlement_values
 }).set_index("Year")
 
-# Conditional highlighting (HEI Cap vs Contract Value)
+# Conditional highlighting function (only between HEI Cap and Contract Value)
 def highlight_min(row):
     cap = row["HEI Cap"]
     contract = row["Contract Value"]
@@ -88,7 +89,7 @@ formatted_df = df_results.style.format("${:,.0f}").apply(
     highlight_min, axis=1, subset=["Home Value", "HEI Cap", "Contract Value", "Settlement Value"]
 )
 
-# Display Metrics clearly
+# Display Metrics
 col1, col2 = st.columns(2)
 col1.metric("🏷️ Premium Amount", f"${premium_amount:,.0f}")
 col2.metric("📈 Investor Percentage", f"{investor_percentage:.0%}")
@@ -101,7 +102,7 @@ fig.add_trace(go.Scatter(x=years, y=contract_values, name="Contract Value"))
 fig.add_trace(go.Scatter(x=years, y=settlement_values, name="Settlement Value", fill='tozeroy'))
 
 fig.update_layout(
-    title='HEI Investment Values Over 10 Years',
+    title='HEI Values Over 10 Years',
     xaxis_title='Year',
     yaxis_title='Value ($)',
     hovermode='x unified'
@@ -109,11 +110,10 @@ fig.update_layout(
 
 st.plotly_chart(fig, use_container_width=True)
 
-# Display formatted DataFrame (error-free, increased height)
+# Display Results Table without extra rows
 st.subheader("📊 Annual HEI Breakdown")
-
 st.dataframe(
     formatted_df,
     use_container_width=True,
-    height=460  # Adjust this height as needed to avoid scrolling
+    height=(len(df_results) + 1) * 35  # dynamic height based on rows
 )
