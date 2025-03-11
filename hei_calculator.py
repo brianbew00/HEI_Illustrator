@@ -2,11 +2,14 @@ import streamlit as st
 import pandas as pd
 import plotly.graph_objects as go
 
-# Page configuration
+# Page setup
 st.set_page_config(page_title="HEI Calculator", layout="wide")
 st.title("🏡 Home Equity Investment (HEI) Calculator")
 
-# Parsing helper functions
+# Sanity Check
+st.success("✅ The latest version of the app has been loaded.")
+
+# Parsing functions
 def parse_currency(x):
     return float(x.replace('$', '').replace(',', '').strip())
 
@@ -19,13 +22,14 @@ def parse_multiplier(x):
 # Sidebar Inputs
 with st.sidebar:
     st.header("📌 Input Parameters")
+
     home_value_str = st.text_input("Home Value", "$1,000,000")
     appreciation_rate_str = st.text_input("Annual Appreciation", "2.00%")
     premium_pct_str = st.text_input("Premium Percentage", "20.00%")
     hei_multiplier_str = st.text_input("HEI Multiplier", "2.0x")
     investor_cap_str = st.text_input("Investor Cap", "20.00%")
 
-# Parse inputs
+# Parse inputs explicitly
 try:
     home_value = parse_currency(home_value_str)
     appreciation_rate = parse_percent(appreciation_rate_str)
@@ -33,7 +37,7 @@ try:
     hei_multiplier = parse_multiplier(hei_multiplier_str)
     investor_cap_rate = parse_percent(investor_cap_str)
 except ValueError:
-    st.error("⚠️ Check your input formats.")
+    st.error("⚠️ Please verify your input formats.")
     st.stop()
 
 # Calculations
@@ -59,7 +63,7 @@ for year in years:
     contract_values.append(contract_value)
     settlement_values.append(settlement_value)
 
-# DataFrame creation
+# DataFrame with index already set
 df_results = pd.DataFrame({
     "Year": years,
     "Home Value": home_values,
@@ -68,31 +72,31 @@ df_results = pd.DataFrame({
     "Settlement Value": settlement_values
 }).set_index("Year")
 
-# Conditional highlighting logic
+# Conditional highlighting logic corrected clearly
 def highlight_min(row):
     cap = row["HEI Cap"]
     contract = row["Contract Value"]
     if cap < contract:
-        return ["background-color: #90ee90", "", ""]
+        return ["background-color: #90ee90", "", "", ""]
     elif contract < cap:
-        return ["", "background-color: #90ee90", ""]
-    return [""] * 3
+        return ["", "background-color: #90ee90", "", ""]
+    return [""] * 4
 
-# Format DataFrame for neatness, apply minimal padding and clear width settings
-formatted_df = df_results.style.format("${:,.0f}")\
-    .apply(highlight_min, axis=1, subset=["HEI Cap", "Contract Value", "Settlement Value"])\
+# Explicitly defined styles: reduced padding, column widths exact
+styled_df = df_results.style.format("${:,.0f}")\
+    .apply(highlight_min, axis=1)\
     .set_table_styles([
-        {'selector': 'th, td', 'props': [('padding', '4px 8px'), ('text-align', 'center')]},
-        {'selector': 'th.col_heading', 'props': [('width', '25%')]},
-        {'selector': 'th.row_heading', 'props': [('width', '10%')]}
+        {'selector': 'th, td', 'props': [('padding', '4px'), ('text-align', 'center')]},
+        {'selector': 'th.col_heading', 'props': [('width', '22%')]},
+        {'selector': 'th.row_heading', 'props': [('width', '12%')]}
     ])
 
-# Display metrics
+# Display key metrics clearly
 col1, col2 = st.columns(2)
 col1.metric("🏷️ Premium Amount", f"${premium_amount:,.0f}")
 col2.metric("📈 Investor Percentage", f"{investor_percentage:.0%}")
 
-# Plotly chart
+# Plotly Interactive Chart
 fig = go.Figure()
 fig.add_trace(go.Scatter(x=years, y=home_values, name="Home Value"))
 fig.add_trace(go.Scatter(x=years, y=hei_caps, name="HEI Cap"))
@@ -108,10 +112,13 @@ fig.update_layout(
 
 st.plotly_chart(fig, use_container_width=True)
 
-# Display formatted DataFrame (proper width, no extra rows)
+# Display formatted table explicitly with corrected height
 st.subheader("📊 Annual HEI Breakdown")
+row_height_px = 35  # height per row in pixels (optimized)
+table_height = (len(df_results) + 1) * row_height_px + 10  # extra for header padding
+
 st.dataframe(
-    formatted_df,
+    styled_df,
     use_container_width=True,
-    height=(len(df_results) + 1) * 30  # Adjusted exact height for no scrolling
+    height=table_height
 )
