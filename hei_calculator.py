@@ -1,26 +1,46 @@
 import streamlit as st
 import pandas as pd
-import numpy as np
 import plotly.graph_objects as go
 
-# Page setup
+# Page Setup
 st.set_page_config(page_title="HEI Calculator", layout="wide")
 st.title("🏡 Home Equity Investment (HEI) Calculator")
 
-# Sanity Check
+# Sanity check
 st.write("✅ The latest version of the app has been loaded.")
 
-# Sidebar Inputs
+# Function to parse formatted input strings
+def parse_currency(x):
+    return float(x.replace('$', '').replace(',', '').strip())
+
+def parse_percent(x):
+    return float(x.replace('%', '').strip()) / 100
+
+def parse_multiplier(x):
+    return float(x.lower().replace('x', '').strip())
+
+# Sidebar Inputs (formatted)
 with st.sidebar:
-    st.header("📌 Input Parameters")
+    st.header("📌 Input Parameters (Formatted)")
 
-    home_value = st.number_input("Home Value ($)", value=1_000_000, step=10_000, format="%d")
-    appreciation_rate = st.number_input("Annual Appreciation Rate (%)", value=2.0, step=0.1, format="%.2f") / 100
-    premium_percentage = st.number_input("Premium Percentage (%)", value=20.0, step=0.1, format="%.2f") / 100
-    hei_multiplier = st.number_input("HEI Multiplier", value=2.0, step=0.1, format="%.2f")
-    investor_cap_rate = st.number_input("Investor Cap (%)", value=20.0, step=0.1, format="%.2f") / 100
+    home_value_str = st.text_input("Home Value", "$1,000,000")
+    appreciation_rate_str = st.text_input("Annual Appreciation", "2.00%")
+    premium_pct_str = st.text_input("Premium Percentage", "20.00%")
+    hei_multiplier_str = st.text_input("HEI Multiplier", "2.0x")
+    investor_cap_str = st.text_input("Investor Cap", "20.00%")
 
-# Perform calculations clearly (without walrus operator)
+# Convert formatted inputs to numeric values
+try:
+    home_value = parse_currency(home_value_str)
+    appreciation_rate = parse_percent(appreciation_rate_str)
+    premium_percentage = parse_percent(premium_pct_str)
+    hei_multiplier = parse_multiplier(hei_multiplier_str)
+    investor_cap_rate = parse_percent(investor_cap_str)
+except ValueError:
+    st.error("Please check your input formats.")
+    st.stop()
+
+# Calculations
 premium_amount = home_value * premium_percentage
 investor_percentage = premium_percentage * hei_multiplier
 
@@ -37,53 +57,48 @@ for year in years:
     if year != 0:
         current_home_value *= (1 + appreciation_rate)
         current_hei_cap *= (1 + investor_cap_rate)
-    else:
-        current_home_value = home_value
-        current_hei_cap = premium_amount
 
-    hei_intrinsic_value = current_home_value * investor_percentage
-    settlement_value = min(current_hei_cap, hei_intrinsic_value)
+    intrinsic_value = current_home_value * investor_percentage
+    settlement_value = min(current_hei_cap, intrinsic_value)
 
     home_values.append(current_home_value)
     hei_caps.append(current_hei_cap)
-    hei_intrinsic_values.append(hei_intrinsic_value)
+    hei_intrinsic_values.append(intrinsic_value)
     settlement_values.append(settlement_value)
 
-# Build DataFrame
+# DataFrame creation
 df_results = pd.DataFrame({
     "Year": years,
     "Home Value": home_values,
     "HEI Cap": hei_caps,
     "HEI Intrinsic Value": hei_intrinsic_values,
-    "Settlement Value": settlement_values
+    "Settlement Value": settlement_values,
 })
 
-# Formatting dataframe for display
-def currency_format(x):
-    return "${:,.0f}".format(x)
-
+# Formatting for display
+currency_fmt = "${:,.0f}".format
 formatted_df = df_results.copy()
-formatted_df["Home Value"] = formatted_df["Home Value"].apply(currency_format)
-formatted_df["HEI Cap"] = formatted_df["HEI Cap"].apply(currency_format)
-formatted_df["HEI Intrinsic Value"] = formatted_df["HEI Intrinsic Value"].apply(currency_format)
-formatted_df["Settlement Value"] = formatted_df["Settlement Value"].apply(currency_format)
+formatted_df["Home Value"] = formatted_df["Home Value"].map(currency_fmt)
+formatted_df["HEI Cap"] = formatted_df["HEI Cap"].map(currency_fmt)
+formatted_df["HEI Intrinsic Value"] = formatted_df["HEI Intrinsic Value"].map(currency_fmt)
+formatted_df["Settlement Value"] = formatted_df["Settlement Value"].map(currency_fmt)
 
-# Display Metrics
+# Display formatted metrics
 col1, col2 = st.columns(2)
 with col1:
-    st.metric("🏷️ Premium Amount", currency_format(premium_amount))
+    st.metric("🏷️ Premium Amount", currency_fmt(premium_amount))
 with col2:
     st.metric("📈 Investor Percentage", f"{investor_percentage:.0%}")
 
-# Plotly Chart
+# Interactive Plotly Chart
 fig = go.Figure()
-fig.add_trace(go.Scatter(x=years, y=home_values, name="Home Value", line=dict(width=3)))
-fig.add_trace(go.Scatter(x=years, y=hei_caps, name="HEI Cap", line=dict(width=3, dash='dash')))
-fig.add_trace(go.Scatter(x=years, y=hei_intrinsic_values, name="HEI Intrinsic Value", line=dict(width=3)))
-fig.add_trace(go.Scatter(x=years, y=settlement_values, name="Settlement Value", fill='tozeroy', line=dict(width=3)))
+fig.add_trace(go.Scatter(x=years, y=home_values, name="Home Value"))
+fig.add_trace(go.Scatter(x=years, y=hei_caps, name="HEI Cap"))
+fig.add_trace(go.Scatter(x=years, y=hei_intrinsic_values, name="HEI Intrinsic Value"))
+fig.add_trace(go.Scatter(x=years, y=settlement_values, name="Settlement Value", fill='tozeroy'))
 
 fig.update_layout(
-    title='HEI Values Over Time',
+    title='HEI Investment Values Over 10 Years',
     xaxis_title='Year',
     yaxis_title='Value ($)',
     hovermode='x unified'
@@ -91,6 +106,6 @@ fig.update_layout(
 
 st.plotly_chart(fig, use_container_width=True)
 
-# Display formatted table
+# Display results table
 st.subheader("📊 Annual HEI Breakdown")
 st.dataframe(formatted_df.set_index("Year"), use_container_width=True)
