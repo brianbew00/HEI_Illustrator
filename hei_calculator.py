@@ -2,9 +2,12 @@ import streamlit as st
 import pandas as pd
 import plotly.graph_objects as go
 
-# Streamlit App Setup
+# Page setup
 st.set_page_config(page_title="HEI Calculator", layout="wide")
 st.title("🏡 Home Equity Investment (HEI) Calculator")
+
+# Sanity Check
+st.success("✅ The latest version of the app has been loaded.")
 
 # Parsing Functions
 def parse_currency(x):
@@ -42,7 +45,7 @@ premium_amount = home_value * premium_percentage
 investor_percentage = premium_percentage * hei_multiplier
 
 years = list(range(11))
-home_values, hei_caps, hei_intrinsic_values, settlement_values = [], [], [], []
+home_values, hei_caps, contract_values, settlement_values = [], [], [], []
 
 current_home_value = home_value
 current_hei_cap = premium_amount
@@ -52,12 +55,12 @@ for year in years:
         current_home_value *= (1 + appreciation_rate)
         current_hei_cap *= (1 + investor_cap_rate)
 
-    intrinsic_value = current_home_value * investor_percentage
-    settlement_value = min(current_hei_cap, intrinsic_value)
+    contract_value = current_home_value * investor_percentage
+    settlement_value = min(current_hei_cap, contract_value)
 
     home_values.append(current_home_value)
     hei_caps.append(current_hei_cap)
-    hei_intrinsic_values.append(intrinsic_value)
+    contract_values.append(contract_value)
     settlement_values.append(settlement_value)
 
 # Results DataFrame clearly set index BEFORE styling
@@ -65,27 +68,27 @@ df_results = pd.DataFrame({
     "Year": years,
     "Home Value": home_values,
     "HEI Cap": hei_caps,
-    "HEI Intrinsic Value": hei_intrinsic_values,
+    "Contract Value": contract_values,
     "Settlement Value": settlement_values
 }).set_index("Year")
 
-# Conditional highlighting (corrected explicitly for exact 4 columns)
+# Conditional highlighting (HEI Cap vs Contract Value)
 def highlight_min(row):
     cap = row["HEI Cap"]
-    intrinsic = row["HEI Intrinsic Value"]
-    if cap < intrinsic:
+    contract = row["Contract Value"]
+    if cap < contract:
         return ["", "background-color: #90ee90", "", ""]
-    elif intrinsic < cap:
+    elif contract < cap:
         return ["", "", "background-color: #90ee90", ""]
     else:
         return [""] * 4
 
-# Apply formatting clearly (corrected)
+# Apply formatting clearly
 formatted_df = df_results.style.format("${:,.0f}").apply(
-    highlight_min, axis=1, subset=["Home Value", "HEI Cap", "HEI Intrinsic Value", "Settlement Value"]
+    highlight_min, axis=1, subset=["Home Value", "HEI Cap", "Contract Value", "Settlement Value"]
 )
 
-# Display Metrics
+# Display Metrics clearly
 col1, col2 = st.columns(2)
 col1.metric("🏷️ Premium Amount", f"${premium_amount:,.0f}")
 col2.metric("📈 Investor Percentage", f"{investor_percentage:.0%}")
@@ -94,7 +97,7 @@ col2.metric("📈 Investor Percentage", f"{investor_percentage:.0%}")
 fig = go.Figure()
 fig.add_trace(go.Scatter(x=years, y=home_values, name="Home Value"))
 fig.add_trace(go.Scatter(x=years, y=hei_caps, name="HEI Cap"))
-fig.add_trace(go.Scatter(x=years, y=hei_intrinsic_values, name="HEI Intrinsic Value"))
+fig.add_trace(go.Scatter(x=years, y=contract_values, name="Contract Value"))
 fig.add_trace(go.Scatter(x=years, y=settlement_values, name="Settlement Value", fill='tozeroy'))
 
 fig.update_layout(
@@ -106,6 +109,11 @@ fig.update_layout(
 
 st.plotly_chart(fig, use_container_width=True)
 
-# Display formatted DataFrame (error-free)
+# Display formatted DataFrame (error-free, increased height)
 st.subheader("📊 Annual HEI Breakdown")
-st.dataframe(formatted_df, use_container_width=True)
+
+st.dataframe(
+    formatted_df,
+    use_container_width=True,
+    height=460  # Adjust this height as needed to avoid scrolling
+)
