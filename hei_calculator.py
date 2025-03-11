@@ -6,9 +6,6 @@ import plotly.graph_objects as go
 st.set_page_config(page_title="HEI Calculator", layout="wide")
 st.title("🏡 Home Equity Investment (HEI) Calculator")
 
-# Sanity Check
-st.success("✅ The latest version of the app has been loaded.")
-
 # Parsing Functions
 def parse_currency(x):
     return float(x.replace('$', '').replace(',', '').strip())
