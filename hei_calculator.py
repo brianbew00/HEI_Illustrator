@@ -2,57 +2,59 @@ import streamlit as st
 import pandas as pd
 import plotly.graph_objects as go
 
-# Page setup
+# Streamlit App Configuration
 st.set_page_config(page_title="HEI Calculator", layout="wide")
 st.title("🏡 Home Equity Investment (HEI) Calculator")
 
-# Sanity check (deployment verification)
-st.write("✅ The latest version of the app has been loaded.")
+# Sanity Check
+st.success("✅ The latest version of the app has been loaded.")
 
-# Sidebar Inputs
-st.sidebar.header("📌 Input Parameters")
+# Input Parsing Functions
+def parse_currency(x):
+    return float(x.replace('$', '').replace(',', '').strip())
 
-home_value = st.sidebar.number_input(
-    "Home Value ($)", value=1_000_000, step=10_000, format="%d"
-)
+def parse_percent(x):
+    return float(x.replace('%', '').strip()) / 100
 
-appreciation_rate = st.sidebar.number_input(
-    "Annual Appreciation (%)", value=2.0, step=0.1, format="%.2f"
-) / 100
+def parse_multiplier(x):
+    return float(x.lower().replace('x', '').strip())
 
-premium_percentage = st.sidebar.number_input(
-    "Premium Percentage (%)", value=20.0, step=0.1, format="%.2f"
-) / 100
+# Sidebar (Formatted Inputs)
+with st.sidebar:
+    st.header("📌 Input Parameters")
+    
+    home_value_input = st.text_input("Home Value", "$1,000,000")
+    appreciation_input = st.text_input("Annual Appreciation", "2.00%")
+    premium_pct_input = st.text_input("Premium Percentage", "20.00%")
+    hei_multiplier_input = st.text_input("HEI Multiplier", "2.0x")
+    investor_cap_input = st.text_input("Investor Cap", "20.00%")
 
-hei_multiplier = st.sidebar.number_input(
-    "HEI Multiplier", value=2.0, step=0.1, format="%.2f"
-)
+# Parsing formatted inputs
+try:
+    home_value = parse_currency(home_value_input)
+    appreciation_rate = parse_percent(appreciation_input)
+    premium_percentage = parse_percent(premium_input)
+    hei_multiplier = parse_multiplier(hei_multiplier_input)
+    investor_cap_rate = parse_percent(investor_cap_input)
+except ValueError:
+    st.error("⚠️ Please verify your input formats.")
+    st.stop()
 
-investor_cap_rate = st.sidebar.number_input(
-    "Investor Cap (%)", value=20.0, step=0.1, format="%.2f"
-) / 100
-
-# Initial Calculations
+# Calculations
 premium_amount = home_value * premium_percentage
 investor_percentage = premium_percentage * hei_multiplier
 
-# Prepare calculation data for 10 years
+# Calculation Logic
 years = list(range(11))
-home_values = []
-hei_caps = []
-hei_intrinsic_values = []
-settlement_values = []
+home_values, hei_caps, hei_intrinsic_values, settlement_values = [], [], [], []
 
 current_home_value = home_value
 current_hei_cap = premium_amount
 
 for year in years:
-    if year != 0:
+    if year > 0:
         current_home_value *= (1 + appreciation_rate)
         current_hei_cap *= (1 + investor_cap_rate)
-    else:
-        current_home_value = home_value
-        current_hei_cap = premium_amount
 
     intrinsic_value = current_home_value * investor_percentage
     settlement_value = min(current_hei_cap, intrinsic_value)
@@ -62,32 +64,54 @@ for year in years:
     hei_intrinsic_values.append(intrinsic_value)
     settlement_values.append(settlement_value)
 
-# DataFrame creation (NO walrus operator!)
-df_results = pd.DataFrame({
-    "Year": range(11),
+# Results DataFrame
+results_df = pd.DataFrame({
+    "Year": years,
     "Home Value": home_values,
     "HEI Cap": hei_caps,
     "HEI Intrinsic Value": hei_intrinsic_values,
     "Settlement Value": settlement_values
 })
 
+# Formatting helper functions
+def currency_fmt(x):
+    return "${:,.0f}".format(x)
+
+# Highlighting logic for table
+def highlight_min(row):
+    cap = row["HEI Cap"]
+    intrinsic = row["HEI Intrinsic Value"]
+    highlight = ["", "", "", ""]
+    if cap < intrinsic:
+        highlight[2] = "background-color: #90ee90"
+    else:
+        highlight = intrinsic_value if intrinsic < cap else cap
+        if intrinsic < cap:
+            return ['', '', 'background-color: #90ee90', '']
+        else:
+            return ['', '', '', 'background-color: #90ee90']
+
+formatted_df = results_df.style.format({
+    "Home Value": currency_fmt,
+    "HEI Cap": currency_fmt,
+    "HEI Intrinsic Value": currency_fmt,
+    "Settlement Value": currency_fmt
+}).apply(highlight_min, axis=1)
+
 # Display Metrics
 col1, col2 = st.columns(2)
-
-with col1:
-    st.metric("🏷️ Premium Amount", f"${premium_amount:,.0f}")
-with col2:
-    st.metric("📈 Investor Percentage", f"{investor_percentage:.0%}")
+col1.metric("Premium Amount", currency_fmt(premium_amount))
+col2.metric("Investor Percentage", f"{investor_percentage:.0%}")
 
 # Interactive Plotly Chart
 fig = go.Figure()
-fig.add_trace(go.Scatter(x=df_results["Year"], y=df_results["Home Value"], name="Home Value"))
-fig.add_trace(go.Scatter(x=df_results["Year"], y=df_results["HEI Cap"], name="HEI Cap"))
-fig.add_trace(go.Scatter(x=df_results["Year"], y=df_results["HEI Intrinsic Value"], name="HEI Intrinsic Value"))
-fig.add_trace(go.Scatter(x=df_results["Year"], y=df_results["Settlement Value"], name="Settlement Value", fill='tozeroy'))
+fig.add_trace(go.Scatter(x=years, y=home_values, name="Home Value"))
+fig.add_trace(go.Scatter(x=years, y=hei_caps, name="HEI Cap"))
+fig.add_trace(go.Scatter(x=years, y=hei_intrinsic_values, name="HEI Intrinsic Value"))
+fig.add_trace(go.Scatter(x=years, y=settlement_values, name="Settlement Value", fill='tozeroy'))
 
 fig.update_layout(
-    title='HEI Investment Values Over 10 Years',
+    title='HEI Values Over 10 Years',
     xaxis_title='Year',
     yaxis_title='Value ($)',
     hovermode='x unified'
@@ -95,24 +119,6 @@ fig.update_layout(
 
 st.plotly_chart(fig, use_container_width=True)
 
-# DataFrame Formatting (Conditional Highlighting)
-def highlight_min(row):
-    cap = row["HEI Cap"]
-    intrinsic = row["HEI Intrinsic Value"]
-    if cap < intrinsic:
-        return ["", "", "background-color: #90ee90", "", ""]
-    elif intrinsic < cap:
-        return ["", "", "", "background-color: #90ee90", ""]
-    else:
-        return [""] * 5
-
-formatted_df = df_results.style.format({
-    "Home Value": "${:,.0f}",
-    "HEI Cap": "${:,.0f}",
-    "HEI Intrinsic Value": "${:,.0f}",
-    "Settlement Value": "${:,.0f}"
-}).apply(highlight_min, axis=1)
-
-# Display formatted table
+# Display Formatted Results Table
 st.subheader("📊 Annual HEI Breakdown")
-st.dataframe(formatted_df, use_container_width=True)
+st.dataframe(formatted_df.set_index("Year"), use_container_width=True)
